@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { Registry, Counter, Histogram } from "prom-client";
 import { getEnv } from "@gatex/config";
+import { createRateLimit } from "@gatex/common";
+import type Redis from "ioredis";
 
 const register = new Registry();
 
@@ -45,3 +47,9 @@ export function setupMetrics(app: Hono) {
   });
 }
 
+export function createRateLimitMiddleware(redis: Redis) {
+  return createRateLimit(redis, {
+    windowMs: 60000, // 1 minute
+    maxRequests: 100, // 100 requests per minute
+  });
+}

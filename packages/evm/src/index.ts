@@ -1,4 +1,5 @@
 export * from "./provider";
+export * from "./provider-with-retry";
 export * from "./erc20";
 export * from "./verification";
 
