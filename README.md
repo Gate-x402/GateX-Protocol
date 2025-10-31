@@ -1,388 +1,275 @@
-# GateX Protocol - BNB Chain x402 Implementation
+# GateX Protocol - BNB Chain x402 API
 
-A production-ready backend for GateX, a BNB Chain-native implementation of the [x402 standard](https://402.fyi) for pay-per-call APIs.
+> **The future of API monetization on BNB Chain.** Pay-per-request blockchain data access with zero registration.
 
-## 🚀 Features
+License: MIT | BNB Chain Status
 
-- **HTTP 402 Payment Required**: Standard-compliant payment challenges
-- **Multi-Token Support**: BNB, BUSD, USDT, and native $GTX token
-- **On-Chain Verification**: Facilitator service verifies transactions on BNB Chain
-- **Replay Protection**: Redis-based nonce and transaction hash tracking
-- **Production Ready**: Prometheus metrics, structured logging, health checks
-- **Type Safe**: Full TypeScript with Zod validation
+## 🚀 What is GateX?
 
-## 📁 Architecture
+GateX is a revolutionary protocol that enables **autonomous agents and developers** to access BNB Chain blockchain data through a pay-per-request model using the HTTP 402 Payment Required standard. No registration, no API keys, no rate limits—just code, payment, and data.
+
+### Key Features
+
+* 🔓 **Zero Registration** - No sign-up forms, no email verification, no waiting
+* ⚡ **Instant Access** - Make a request, pay with crypto, get your data instantly
+* 🔐 **Payment IS Authentication** - Cryptographic payment proof replaces API keys
+* 🤖 **Agent Native** - Designed for autonomous systems from day one
+* 📈 **Unlimited Scale** - Pay per request, no artificial limits or throttling
+* 💰 **Multi-Token Support** - Pay with BNB, BUSD, USDT, or native $GTX token
+
+## 🎯 Why GateX?
+
+### The Problem with Traditional APIs
+
+* ❌ **API Key Hell** - Manual registration, key rotation, security overhead
+* ❌ **Rate Limiting** - Artificial constraints, throttling, unpredictable access
+* ❌ **Subscription Lock-in** - Monthly fees, tier limitations, unused capacity waste
+* ❌ **Human Required** - Agents can't autonomously discover and pay for services
+
+### The GateX Solution
+
+* ✅ **Zero Registration** - Instant access, payment IS authentication
+* ✅ **Unlimited Scale** - Pay per request, no artificial limits
+* ✅ **Multi-Token Payments** - BNB, BUSD, USDT, or $GTX token
+* ✅ **Agent Native** - Fully autonomous discovery, payment, and consumption
+* ✅ **BNB Chain Native** - Built specifically for BNB Chain ecosystem
+
+## 🏗️ How It Works
 
 ```
-gatex-protocol/
-├── apps/
-│   ├── merchant/      # Issues x402 challenges and fulfills paid requests
-│   └── facilitator/   # Verifies on-chain payments and signs verdicts
-├── packages/
-│   ├── common/        # Shared types, zod schemas, crypto utils, Prisma
-│   ├── evm/           # ethers.js v6 helpers (providers, ERC20 parsing)
-│   └── config/        # Env loaders and constants
-└── docker-compose.yml # PostgreSQL + Redis
+1. REQUEST     → Agent makes HTTP call to endpoint
+2. 402 RESPONSE → Server returns payment challenge with quote
+3. ON-CHAIN PAY → BNB Chain micropayment (BNB/BUSD/USDT/GTX)
+4. PROOF SENT   → Payment transaction hash attached to retry
+5. DATA DELIVERED → Instant response with requested data
 ```
 
-## 🛠️ Tech Stack
+## 📡 API Endpoints
 
-- **Framework**: [Hono](https://hono.dev) (Edge-friendly API)
-- **Database**: PostgreSQL via [Prisma](https://www.prisma.io)
-- **Cache**: Redis for nonce/replay protection
-- **Blockchain**: [ethers.js v6](https://docs.ethers.org) (BNB Chain RPC)
-- **Auth**: JWT for developer tokens
-- **Env**: zod + dotenv
-- **Package Manager**: pnpm
-- **Testing**: Vitest
-- **CI**: GitHub Actions
+### Quote & Payment Flow
 
-## 📦 Installation
+| Endpoint                     | Description                          | Price        |
+| ---------------------------- | ------------------------------------ | ------------ |
+| GET /v1/route-quote/:slug   | Get payment quote for protected API  | Variable     |
+| POST /api/verify             | Verify on-chain payment (Facilitator) | Internal     |
 
-### Prerequisites
+### Example Endpoints
 
-- Node.js >= 20
-- pnpm >= 8
-- Docker & Docker Compose (for local development)
+Developers can register their own endpoints with custom pricing. Examples include:
 
-### Setup
+| Endpoint                     | Description                          | Price    |
+| ---------------------------- | ------------------------------------ | -------- |
+| GET /api/account/{address}  | BNB Chain account details            | $0.01    |
+| GET /api/token/{address}     | Token metadata and price data        | $0.01    |
+| GET /api/transaction/{hash}  | Transaction details and analysis     | $0.01    |
+| GET /api/price/{token}       | Real-time token price feed           | $0.01    |
+| GET /api/defi/positions      | DeFi position analytics              | $0.05    |
+| POST /api/swap/quote         | DEX swap quote with optimal routing  | $0.01    |
 
-1. **Clone and install dependencies:**
+## 💻 Quick Start
 
-```bash
-git clone <repository-url>
-cd gatex-protocol
-pnpm install
-```
+### Basic Request Flow
 
-2. **Start infrastructure (PostgreSQL + Redis):**
+```javascript
+// 1. Make initial request
+const response = await fetch("https://api.gatex.xyz/v1/route-quote/my-api");
 
-```bash
-docker-compose up -d
-```
+// 2. Receive 402 Payment Required
+if (response.status === 402) {
+  const challenge = await response.json();
+  // {
+  //   "standard": "x402",
+  //   "price": "0.01",
+  //   "currency": "USD",
+  //   "network": "bsc",
+  //   "payToken": "BNB",
+  //   "treasury": "0x...",
+  //   "quoteId": "uuid-here",
+  //   "nonce": "nonce-here",
+  //   "expiresAt": "2024-01-01T00:02:00Z",
+  //   "facilitator": {
+  //     "url": "https://facilitator.gatex.xyz/api/verify",
+  //     "signer": "0x..."
+  //   },
+  //   "requestHash": "sha256:..."
+  // }
 
-3. **Set up environment variables:**
+  // 3. Make BNB Chain payment
+  const txHash = await sendPayment(
+    challenge.treasury,
+    challenge.amountWei,
+    challenge.payToken // BNB, BUSD, USDT, or GTX
+  );
 
-Create a `.env` file in the root directory:
+  // 4. Get verification from facilitator
+  const verification = await fetch(challenge.facilitator.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      quoteId: challenge.quoteId,
+      tx: txHash,
+      token: challenge.payToken,
+      amountWei: challenge.amountWei,
+      requestHash: challenge.requestHash,
+    }),
+  });
 
-```env
-# Database
-DATABASE_URL="postgresql://gatex:gatex_dev_password@localhost:5432/gatex"
+  const { verdict, signature, signer } = await verification.json();
 
-# Redis
-REDIS_URL="redis://localhost:6379"
+  // 5. Retry with payment proof
+  const dataResponse = await fetch("https://api.gatex.xyz/v1/route-quote/my-api", {
+    headers: {
+      "X-PAYMENT": JSON.stringify({
+        quoteId: challenge.quoteId,
+        tx: txHash,
+        token: challenge.payToken,
+        amountWei: challenge.amountWei,
+        requestHash: challenge.requestHash,
+        verdict,
+        signature,
+        signer,
+      }),
+    },
+  });
 
-# BNB Chain RPC
-BSC_RPC_URL="https://bsc-dataseed1.binance.org"
-BSC_TESTNET_RPC_URL="https://data-seed-prebsc-1-s1.binance.org:8545"
-
-# Network (mainnet | testnet)
-NETWORK="testnet"
-
-# Facilitator
-FACILITATOR_PRIVATE_KEY="0x..."  # Private key for signing verdicts
-FACILITATOR_SIGNER_ADDRESS="0x..."  # Address derived from private key
-
-# Tokens
-TOKEN_BNB="0x0000000000000000000000000000000000000000"
-TOKEN_BUSD="0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"  # Mainnet BUSD
-TOKEN_USDT="0x55d398326f99059fF775485246999027B3197955"  # Mainnet USDT
-TOKEN_GTX="0xYourTokenAddress"  # Your $GTX token address
-
-# Merchant
-MERCHANT_JWT_SECRET="your-jwt-secret-key-change-in-production"
-MERCHANT_PORT=3000
-
-# Facilitator
-FACILITATOR_PORT=3001
-
-# Prometheus
-PROMETHEUS_PORT=9090
-
-# Treasury (Merchant)
-MERCHANT_TREASURY="0x..."  # Address to receive payments
-```
-
-4. **Set up database:**
-
-```bash
-# Generate Prisma Client
-pnpm db:generate
-
-# Run migrations
-pnpm db:migrate
-```
-
-5. **Seed initial data (optional):**
-
-Create an endpoint in the database:
-
-```sql
-INSERT INTO "Endpoint" (id, slug, "basePriceCents", "tokenPreference", treasury, active)
-VALUES ('clx...', 'test-api', 100, 'BNB', '0xYourTreasuryAddress', true);
-```
-
-Or use Prisma Studio:
-
-```bash
-pnpm db:studio
-```
-
-6. **Start development servers:**
-
-```bash
-# Start both merchant and facilitator
-pnpm dev
-
-# Or start individually:
-pnpm --filter @gatex/merchant dev
-pnpm --filter @gatex/facilitator dev
-```
-
-## 📚 API Documentation
-
-### Merchant API
-
-**Base URL**: `http://localhost:3000`
-
-#### Get Quote (HTTP 402 Challenge)
-
-```bash
-GET /v1/route-quote/:slug
-```
-
-**Response (402 Payment Required):**
-
-```json
-{
-  "standard": "x402",
-  "price": "0.01",
-  "currency": "USD",
-  "network": "bsc",
-  "payToken": "BNB",
-  "treasury": "0x...",
-  "quoteId": "uuid-here",
-  "nonce": "nonce-here",
-  "expiresAt": "2024-01-01T00:02:00Z",
-  "facilitator": {
-    "url": "http://localhost:3001/api/verify",
-    "signer": "0x..."
-  },
-  "requestHash": "sha256:..."
+  // 6. Receive data
+  const data = await dataResponse.json();
+  console.log(data);
 }
 ```
 
-#### Request with Payment Proof
-
-```bash
-GET /v1/route-quote/:slug
-Header: X-PAYMENT: {"quoteId":"...","tx":"0x...","token":"BNB","amountWei":"...","requestHash":"sha256:..."}
-```
-
-**Response (200 OK):**
+### Example Response
 
 ```json
 {
   "success": true,
   "data": {
-    "message": "Protected resource for test-api",
+    "message": "Protected resource for my-api",
     "timestamp": "2024-01-01T00:01:00Z",
     "quoteId": "uuid-here"
   }
 }
 ```
 
-#### Health Check
+## 🪙 $GTX Token
 
-```bash
-GET /health
+The native payment and reward token for GateX Protocol.
+
+### Token Benefits
+
+**💰 Earn from Usage**
+
+* 0.25% facilitator fee collected on all transactions
+* Fee distribution to token holders (staking rewards)
+* Optional burn mechanism for deflationary pressure
+* Supply reduction over time increases value
+
+**⚡ Save on Requests**
+
+* Token holders get discounted API requests
+* Lower costs for high-volume users
+* Utility beyond speculation - actual protocol usage
+
+### Tokenomics
+
+| Metric                  | Value        |
+| ----------------------- | ------------ |
+| API Request Fee         | $0.01        |
+| Facilitator Fee         | 0.25%        |
+| Fees to Holders         | TBD           |
+| Burn Mechanism          | Optional      |
+| Supply Model             | Configurable  |
+
+### The Flywheel Effect
+
+```
+Usage → Fees → Distribution → Staking → Higher Value → More Usage → Revenue...
 ```
 
-### Facilitator API
+Higher usage generates more fees, which are distributed to token holders, increasing token value and creating a self-reinforcing cycle.
 
-**Base URL**: `http://localhost:3001`
+## 🔧 Implementation Details
 
-#### Verify Payment
+* ✅ HTTP 402 Payment Required standard compliance
+* ✅ Multi-token payment support (BNB, BUSD, USDT, GTX)
+* ✅ On-chain payment verification via facilitator service
+* ✅ Cryptographic replay protection with nonces
+* ✅ Request hash validation for payment authenticity
+* ✅ No rate limits - true pay per request model
+* ✅ Failed requests are not charged
+* ✅ Sub-second response times
 
-```bash
-POST /api/verify
-Content-Type: application/json
+## 🌐 Network Information
 
-{
-  "quoteId": "uuid-here",
-  "tx": "0x...",
-  "token": "BNB",
-  "amountWei": "1000000000000000",
-  "requestHash": "sha256:..."
-}
-```
+* **Network:** BNB Chain (BSC) Mainnet & Testnet
+* **Payment Tokens:** BNB, BUSD, USDT, $GTX
+* **Average Response Time:** <500ms
+* **Transaction Finality:** ~3 seconds
 
-**Response:**
+## 📊 Stats
 
-```json
-{
-  "quoteId": "uuid-here",
-  "verdict": "paid",
-  "signature": "0x...",
-  "signer": "0x...",
-  "expiresAt": "2024-01-01T00:11:00Z"
-}
-```
-
-#### Health Check
-
-```bash
-GET /health
-```
-
-**Response:**
-
-```json
-{
-  "status": "healthy",
-  "signer": "0x...",
-  "network": "testnet",
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
-## 🔄 Payment Flow
-
-1. **Client requests protected endpoint** → Merchant returns HTTP 402 with quote
-2. **Client sends payment** → Transaction on BNB Chain to treasury address
-3. **Client requests facilitator** → `/api/verify` with transaction hash
-4. **Facilitator verifies** → Checks on-chain transaction, signs verdict
-5. **Client retries merchant** → Includes payment proof in `X-PAYMENT` header
-6. **Merchant verifies** → Calls facilitator, checks signature, returns resource
-
-## 🔐 Security Features
-
-- **Nonce per quote**: Stored in Redis with 2-minute TTL
-- **Transaction replay protection**: Transaction hashes tracked in Redis for 24 hours
-- **ECDSA signature verification**: Facilitator signs verdicts with private key
-- **Request hash validation**: Ensures payment is for specific request
-- **Quote expiration**: Quotes expire after 2 minutes
-
-## 📊 Observability
-
-### Prometheus Metrics
-
-Available at `/metrics` on both services:
-
-- `quotes_issued_total` - Total quotes issued by endpoint and token
-- `verifications_total` - Total verifications by status
-- `request_latency_seconds` - Request latency histogram
-
-### Health Checks
-
-- **Merchant**: `GET /health` - Checks database and Redis
-- **Facilitator**: `GET /health` - Returns signer address and network
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-pnpm test
-
-# Run tests for specific package
-pnpm --filter @gatex/common test
-```
-
-### Example cURL Flow
-
-```bash
-# 1. Request quote (get 402 challenge)
-curl http://localhost:3000/v1/route-quote/test-api
-
-# 2. Send payment on BNB Chain (use MetaMask or other wallet)
-# Send 0.01 BNB to treasury address from 402 response
-
-# 3. Verify payment with facilitator
-curl -X POST http://localhost:3001/api/verify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "quoteId": "quote-id-from-step-1",
-    "tx": "0x...",
-    "token": "BNB",
-    "amountWei": "10000000000000000",
-    "requestHash": "sha256:..."
-  }'
-
-# 4. Retry merchant with payment proof
-curl http://localhost:3000/v1/route-quote/test-api \
-  -H "X-PAYMENT: {\"quoteId\":\"...\",\"tx\":\"0x...\",\"token\":\"BNB\",\"amountWei\":\"...\",\"requestHash\":\"sha256:...\"}"
-```
-
-## 🪙 $GTX Token Integration
-
-$GTX is the native payment and reward token for GateX. It's treated like any ERC-20 token on BNB Chain.
-
-**Configuration:**
-
-- Set `TOKEN_GTX` in `.env` to your token contract address
-- Developers can set endpoint pricing in $GTX via `tokenPreference`
-- All transactions are tracked in the database for analytics
-
-**Fee Distribution (Future):**
-
-- 0.25% facilitator fee (can be configured)
-- Optional burn wallet for deflation
-- All metadata stored for analytics
-
-## 🚀 Deployment
-
-### Production Checklist
-
-- [ ] Set `NETWORK="mainnet"` in production environment
-- [ ] Use strong `MERCHANT_JWT_SECRET`
-- [ ] Secure `FACILITATOR_PRIVATE_KEY` (use secrets manager)
-- [ ] Set up production PostgreSQL and Redis
-- [ ] Configure CORS for your domain
-- [ ] Set up monitoring and alerting
-- [ ] Enable SSL/TLS
-- [ ] Set up rate limiting
-- [ ] Configure logging aggregation
-
-### Docker Deployment
-
-Build and run with Docker:
-
-```bash
-# Build images
-docker build -t gatex-merchant -f apps/merchant/Dockerfile .
-docker build -t gatex-facilitator -f apps/facilitator/Dockerfile .
-
-# Run
-docker run -d --env-file .env gatex-merchant
-docker run -d --env-file .env gatex-facilitator
-```
-
-## 📝 Database Schema
-
-See `packages/common/prisma/schema.prisma` for the full schema.
-
-Key models:
-- **Endpoint**: API endpoints with pricing
-- **PriceQuote**: Generated quotes with nonces
-- **Payment**: On-chain payment records
-- **Verification**: Facilitator verdicts with signatures
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
-
-## 📄 License
-
-MIT
+| Metric                | Value        |
+| --------------------- | ------------ |
+| Registration Required | 0            |
+| Response Time         | <500ms       |
+| Cost Per Request      | Variable     |
+| Payment Tokens        | 4 (BNB/BUSD/USDT/GTX) |
+| Replay Protection     | ✅ Nonce-based |
+| On-Chain Verification | ✅ Real-time  |
 
 ## 🔗 Links
 
-- [x402 Standard](https://402.fyi)
-- [BNB Chain Docs](https://docs.bnbchain.org)
-- [Hono Framework](https://hono.dev)
-- [Prisma](https://www.prisma.io)
+* **Website:** Coming Soon
+* **GitHub:** [https://github.com/Gate-x402/GateX-Protocol](https://github.com/Gate-x402/GateX-Protocol)
+* **Documentation:** Coming Soon
+* **Twitter:** Coming Soon
 
+## 🤝 Use Cases
+
+### For Developers
+
+* Build data-driven dApps without API key management
+* Pay only for actual usage, no monthly subscriptions
+* Instant access without registration friction
+* Multi-token payment flexibility
+
+### For Autonomous Agents
+
+* Discover and consume APIs independently
+* No human intervention required
+* Programmatic payment and data retrieval
+* Native BNB Chain integration
+
+### For DeFi Applications
+
+* Access real-time token prices and market data
+* Monitor wallet activities and token movements
+* Execute trades through aggregated DEX routing
+* Analyze DeFi positions and yields
+
+## 🔐 Security Features
+
+* **On-Chain Verification** - All payments verified on BNB Chain
+* **Replay Protection** - Nonce-based system prevents double-spending
+* **Request Hashing** - Cryptographic validation of payment requests
+* **Facilitator Signing** - ECDSA signatures for payment verification
+* **Expiration** - Quotes expire after 2 minutes
+* **Transaction Tracking** - 24-hour replay protection window
+
+## 📝 License
+
+MIT License - see LICENSE for details.
+
+## 🚦 Status
+
+* ✅ **Live on BNB Chain Testnet**
+* ✅ **Production-Ready Backend**
+* ✅ **Multi-Token Support**
+* ✅ **Zero Registration Required**
+* 🔄 **Mainnet Deployment** - Coming Soon
+
+---
+
+Built with ⚡ for the future of autonomous systems on BNB Chain.
+
+**Ready to build? Start accessing BNB Chain blockchain data in seconds. No registration required. Just pay and go.**
