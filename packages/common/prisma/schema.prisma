@@ -1,0 +1,66 @@
+// Prisma schema for GateX Protocol
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Endpoint {
+  id             String       @id @default(cuid())
+  slug           String       @unique
+  basePriceCents Int
+  tokenPreference String      // "BNB" | "BUSD" | "USDT" | "GTX"
+  treasury       String       // Treasury address
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  quotes         PriceQuote[]
+}
+
+model PriceQuote {
+  id          String       @id @default(cuid())
+  endpointId  String
+  endpoint    Endpoint     @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  nonce       String       @unique
+  requestHash String
+  payToken    String       // "BNB" | "BUSD" | "USDT" | "GTX"
+  treasury    String
+  amountCents Int
+  amountWei   String       // BigInt stored as string
+  expiresAt   DateTime
+  status      String       @default("pending") // "pending" | "paid" | "expired" | "failed"
+  createdAt   DateTime     @default(now())
+  payments    Payment[]
+  verification Verification?
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  tx          String      @unique // Transaction hash
+  quoteId     String
+  quote       PriceQuote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  payer       String      // Payer address
+  token       String      // Token used for payment
+  amountWei   String      // BigInt stored as string
+  blockNumber Int?
+  status      String      @default("pending") // "pending" | "confirmed" | "failed"
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Verification {
+  id         String      @id @default(cuid())
+  quoteId    String      @unique
+  quote      PriceQuote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  verdict    String      // "paid" | "unpaid"
+  signature  String
+  signer     String      // Facilitator signer address
+  expiresAt  DateTime?
+  createdAt  DateTime    @default(now())
+}
+
